@@ -33,15 +33,17 @@
 #include "hardware/StandardLED.h"
 #include "hardware/Switch.h"
 #include "hardware/TempSensorDallas.h"
+#include "hardware/TempSensorK.h"
 #include "hardware/TempSensorTSIC.h"
 #include "hardware/pinmapping.h"
+#include "hardware/pressureSensor.h"
+#include "hardware/pressureSensorAds1115.h"
 
 // User configuration & defaults
 #include "defaults.h"
 
 hw_timer_t* timer = nullptr;
 
-#include "hardware/pressureSensor.h"
 #include <Wire.h>
 
 #define HX711_ADC_config_h
@@ -106,7 +108,7 @@ String otaPass;
 // Pressure sensor
 float inputPressure = 0;
 float inputPressureFilter = 0;
-const unsigned long intervalPressure = 100;
+const unsigned long intervalPressure = 20;
 unsigned long previousMillisPressure; // initialisation at the end of init()
 
 // timing flags
@@ -126,10 +128,12 @@ Switch* waterTankSensor = nullptr;
 GPIOPin* statusLedPin = nullptr;
 GPIOPin* brewLedPin = nullptr;
 GPIOPin* steamLedPin = nullptr;
+GPIOPin* waterLedPin = nullptr;
 
 LED* statusLed = nullptr;
 LED* brewLed = nullptr;
 LED* steamLed = nullptr;
+LED* waterLed = nullptr;
 
 GPIOPin heaterRelayPin(PIN_HEATER, GPIOPin::OUT);
 Relay* heaterRelay = nullptr;
@@ -1120,6 +1124,9 @@ void setup() {
     else if (tempSensorType == 1) {
         tempSensor = new TempSensorDallas(PIN_TEMPSENSOR);
     }
+    else if (tempSensorType == 2) {
+        tempSensor = new TempSensorK(PIN_TEMPERATURE_CLK, PIN_TEMPERATURE_CS, PIN_TEMPERATURE_SO);
+    }
 
     if (tempSensor != nullptr) {
         temperature = tempSensor->getCurrentTemperature();
@@ -1305,7 +1312,12 @@ void loopPid() {
     if (config.get<bool>("hardware.sensors.pressure.enabled")) {
         if (const unsigned long currentMillisPressure = millis(); currentMillisPressure - previousMillisPressure >= intervalPressure) {
             previousMillisPressure = currentMillisPressure;
-            inputPressure = measurePressure();
+            if (config.get<int>("hardware.sensors.pressure.type") == 0) {
+                inputPressure = measurePressure();
+            }
+            else if (config.get<int>("hardware.sensors.pressure.type") == 1) {
+                inputPressure = measurePressureAds();
+            }
             inputPressureFilter = filterPressureValue(inputPressure);
         }
     }
@@ -1434,6 +1446,10 @@ void loopLED() {
 
     if (config.get<bool>("hardware.leds.steam.enabled") && steamLed != nullptr) {
         steamLed->setGPIOState(machineState == kSteam);
+    }
+
+    if (config.get<bool>("hardware.leds.water.enabled") && waterLed != nullptr) {
+        waterLed->setGPIOState(machineState == kHotWater);
     }
 }
 
