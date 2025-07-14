@@ -311,11 +311,8 @@ inline void serverSetup() {
                     includeParam = true;
                     // includeParam = param->getSection() >= 1 && param->getSection() <= 16;
                 }
-                else if (filterType == "all") {
-                    includeParam = true;
-                }
                 else {
-                    includeParam = param->getSection() == 0 || param->getSection() == 1 || param->getSection() == 10;
+                    includeParam = param->getSection() == 0 || param->getSection() == 1 || param->getSection() == 11;
                 }
 
                 if (includeParam) {

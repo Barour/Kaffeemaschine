@@ -12,6 +12,7 @@
 // Libraries & Dependencies
 #include "Logger.h"
 #include <ArduinoOTA.h>
+#include <ESP32Encoder.h>
 #include <LittleFS.h>
 #include <PID_v1.h>  // for PID calculation
 #include <U8g2lib.h> // i2c display
@@ -37,9 +38,9 @@
 #include "hardware/TempSensorK.h"
 #include "hardware/TempSensorTSIC.h"
 #include "hardware/pinmapping.h"
-#include "hardware/pumpControl.h"
 #include "hardware/pressureSensor.h"
 #include "hardware/pressureSensorAds1115.h"
+#include "hardware/pumpControl.h"
 
 // User configuration & defaults
 #include "defaults.h"
@@ -96,6 +97,9 @@ double postBrewTimerDuration = POST_BREW_TIMER_DURATION;
 bool featureHeatingLogo = false;
 bool featurePidOffLogo = false;
 
+// encoder menu
+int menuLevel = 0;
+
 // WiFi
 WiFiManager wm;
 constexpr unsigned long wifiConnectionDelay = WIFICONNECTIONDELAY;
@@ -134,6 +138,7 @@ float PidResults[LOOP_HISTORY_SIZE][TYPE_HISTORY_SIZE]; // Output, Target, Flow,
 #include "utils/timingDebug.h"
 
 Switch* waterTankSensor = nullptr;
+Switch* encoderSw = nullptr;
 
 GPIOPin* statusLedPin = nullptr;
 GPIOPin* brewLedPin = nullptr;
@@ -246,6 +251,7 @@ const char* phaseName = nullptr;
 double lastBrewSetpoint = 0.0;
 
 #include "brewHandler.h"
+#include "hardware/rotaryEncoder.h"
 #include "hotWaterHandler.h"
 #include "pumpController.h"
 
@@ -1080,7 +1086,12 @@ void setup() {
 
     if (config.get<bool>("hardware.sensors.watertank.enabled")) {
         const auto mode = static_cast<Switch::Mode>(config.get<int>("hardware.sensors.watertank.mode"));
-        waterTankSensor = new IOSwitch(PIN_WATERTANKSENSOR, (mode == Switch::NORMALLY_OPEN ? GPIOPin::IN_PULLDOWN : GPIOPin::IN_PULLUP), Switch::TOGGLE, mode, mode);
+        waterTankSensor = new IOSwitch(PIN_WATERTANKSENSOR, (mode == Switch::NORMALLY_OPEN ? GPIOPin::IN_PULLDOWN : GPIOPin::IN_PULLUP), Switch::TOGGLE, mode, !mode);
+    }
+
+    if (config.get<bool>("hardware.switches.encoder.enabled")) {
+        encoderSw = new IOSwitch(PIN_ROTARY_SW, GPIOPin::IN_PULLUP, Switch::TOGGLE, Switch::NORMALLY_CLOSED, Switch::NORMALLY_CLOSED);
+        initEncoder();
     }
 
     if (!config.get<bool>("system.offline_mode")) { // WiFi Mode
@@ -1219,6 +1230,10 @@ void setup() {
 
     if (config.get<bool>("hardware.sensors.pressure.enabled")) {
         previousMillisPressure = currentTime;
+
+        if (config.get<int>("hardware.sensors.pressure.type") == 1) {
+            pressureInit();
+        }
     }
 
     setupDone = true;
@@ -1243,6 +1258,7 @@ void setup() {
         populateProfileNames();
         profilesCount = loadedProfiles.size();
         LOGF(INFO, "Loaded %d brew profiles", profilesCount);
+        currentProfileIndex = selectedProfile;
         if (currentProfileIndex >= profilesCount) {
             currentProfileIndex = 0;
         }
@@ -1486,6 +1502,7 @@ void loopPid() {
     handleMachineState();
     hotWaterHandler();
     valveSafetyShutdownCheck();
+    encoderHandler();
 
     if (config.get<bool>("hardware.switches.brew.enabled")) {
         shouldDisplayBrewTimer();

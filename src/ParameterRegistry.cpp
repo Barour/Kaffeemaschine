@@ -1259,6 +1259,15 @@ void ParameterRegistry::initialize(Config& config) {
         "Electrical configuration of water switch<br>Normally Open is active high<br>Normally Closed is active low"
     );
 
+    addBoolConfigParam(
+        "hardware.switches.encoder.enabled",
+        "Enable Encoder",
+        sHardwareSwitchSection,
+        2241,
+        nullptr,
+        "Enable encoder with button"
+    );
+
     // LEDs
     addBoolConfigParam(
         "hardware.leds.status.enabled",
@@ -1359,8 +1368,8 @@ void ParameterRegistry::initialize(Config& config) {
         sHardwareSensorSection,
         2412,
         nullptr,
-        (const char* const[]){"Honeywell, ADS1115"},
-        3,
+        (const char* const[]){"Honeywell", "ADS1115"},
+        2,
         "Type of pressure sensor connected"
     );
 

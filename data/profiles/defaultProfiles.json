@@ -1,6 +1,3 @@
-#pragma once
-
-const char* defaultProfilesJson = R"json(
 [
   {
     "name": "Spring Lever",
@@ -608,4 +605,3 @@ const char* defaultProfilesJson = R"json(
     ]
   }
 ]
-)json";

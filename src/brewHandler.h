@@ -76,7 +76,7 @@ inline float currBrewWeight = 0;    // weight value of current brew
 inline float scaleDelayValue = 2.5; // value in gramm that takes still flows onto the scale after brew is stopped
 inline bool scaleFailure = false;
 inline HX711_ADC LoadCell(PIN_HXDAT, PIN_HXCLK);
-inline HX711_ADC LoadCell2(PIN_HXDAT2, PIN_HXCLK);
+inline HX711_ADC LoadCell2(PIN_HXDAT2, PIN_HXCLK2);
 
 // Profiles
 extern bool brewProfileComplete;
@@ -273,7 +273,7 @@ inline bool brew() {
     const int brewMode = config.get<int>("brew.mode");
     const bool brewByTimeEnabled = brewMode != 0 && config.get<bool>("brew.by_time");
     const bool brewByWeightEnabled = brewMode != 0 && config.get<bool>("brew.by_weight");
-    const bool preinfusionEnabled = config.get<bool>("brew.pre_infusion.enabled") && (config.get<int>("dimmer.mode") == 3); // force off if running profile
+    const bool preinfusionEnabled = config.get<bool>("brew.pre_infusion.enabled") && !(config.get<int>("dimmer.mode") == 3); // force off if running profile
 
     // check if brewswitch was turned off after a brew; Brew only runs once even brewswitch is still pressed
     if (currBrewSwitchState == kBrewSwitchIdle) {

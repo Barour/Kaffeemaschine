@@ -67,6 +67,7 @@ float pumpIntegral = 0.0;
 float previousError = 0;
 bool startProfile = true;
 bool brewProfileComplete = false;
+const char* dimmerModeName[4] = {"Power", "Pressure", "Flow", "Profile"};
 
 float applySmoothOverride(float target, float input, float ceiling, float range, int curve = 1) {
     if (ceiling > 0 && range > 0 && input > ceiling) {
@@ -96,9 +97,8 @@ void dimmerModeHandler() {
     pumpIntegral = 0;
     previousError = 0;
 
-    BrewProfile* profile = getProfile(currentProfileIndex);
-
     if (dimmerMode == PROFILE) {
+        BrewProfile* profile = getProfile(currentProfileIndex);
         if (profile) {
             profileName = profile->name;
             lastBrewSetpoint = brewSetpoint;
@@ -116,7 +116,9 @@ void dimmerModeHandler() {
         }
     }
     else {
-        brewSetpoint = lastBrewSetpoint;
+        if (lastBrewSetpoint > 0) {
+            brewSetpoint = lastBrewSetpoint;
+        }
         // temperature = lastBrewSetpoint;
         // preinfusion = lastPreinfusion;           // preinfusion time in s
         // preinfusionPause = lastPreinfusionPause; // preinfusion pause time in s
@@ -376,19 +378,15 @@ void loopPump() {
         static int lastDimmerType = 0;
         static float maxLoggedPressure = 0.0;
 
-        if (dimmerMode != lastDimmerMode) {
-            dimmerModeHandler();
-            lastDimmerMode = dimmerMode;
-        }
-
-        if (selectedProfile != currentProfileIndex) {
+        if ((dimmerMode != lastDimmerMode) || (selectedProfile != currentProfileIndex)) {
             currentProfileIndex = selectedProfile;
+            lastDimmerMode = dimmerMode;
             dimmerModeHandler();
         }
 
         if (dimmerType != lastDimmerType) {
-            dimmerTypeHandler();
             lastDimmerType = dimmerType;
+            dimmerTypeHandler();
         }
 
         if (dimmerMode == PRESSURE) {
@@ -452,7 +450,7 @@ void loopPump() {
 
                 if (pumpControlMode == PRESSURE) {  // pressure
                     inputPID = inputPressureFilter; // inputPressure;
-                    targetPID = (machineState == kBackflush) ? 9.0f : pumpPressureSetpoint;
+                    targetPID = (machineState == kBackflush) ? 9.0f : setPressure;
                     // Smooth flow override, doesnt work well in pressure
                     targetPID = applySmoothOverride(targetPID, pumpFlowRate, flowPressureCeiling, flowPressureRange, 2); // 1 is linear reduction, 2 quadratic, 3 cubic
                     inputKp = pressureKp;
@@ -461,7 +459,7 @@ void loopPump() {
                 }
                 else if (pumpControlMode == FLOW) { // flow and PID tuning
                     inputPID = pumpFlowRate;
-                    targetPID = (machineState == kManualFlush) ? 10.0f : pumpFlowSetpoint;
+                    targetPID = (machineState == kManualFlush) ? 10.0f : setPumpFlowRate;
                     // Smooth pressure override
                     targetPID = applySmoothOverride(targetPID, inputPressureFilter, flowPressureCeiling, flowPressureRange, 2); // 1 is linear reduction, 2 quadratic, 3 cubic
                     inputKp = flowKp;

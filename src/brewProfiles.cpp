@@ -1,6 +1,6 @@
 #include "brewProfiles.h"
-#include "brewProfilesJson.h"
 #include <ArduinoJson.h>
+#include <LittleFS.h>
 
 std::vector<BrewProfile> loadedProfiles;
 std::vector<const char*> profileNames;
@@ -10,6 +10,25 @@ size_t profilesCount = 0;
 const char* exitTypeStrs[] = {"none", "flow_under", "flow_over", "pressure_under", "pressure_over"};
 const char* transitionStrs[] = {"none", "smooth", "fast", "hold"};
 const char* pumpModeStrs[] = {"power", "pressure", "flow"};
+
+bool loadDefaultProfilesFromFS(JsonDocument& doc) {
+    File file = LittleFS.open("/profiles/defaultProfiles.json", "r");
+
+    if (!file) {
+        Serial.println("Failed to open default profiles file!");
+        return false;
+    }
+
+    DeserializationError error = deserializeJson(doc, file);
+
+    if (error) {
+        Serial.print("Failed to parse default profiles: ");
+        Serial.println(error.c_str());
+        return false;
+    }
+
+    return true;
+}
 
 void populateProfileNames() {
     profileNames.clear();
@@ -70,13 +89,8 @@ PumpMode parsePumpMode(const char* str) {
 
 void parseDefaultProfiles() {
     JsonDocument doc;
-    // StaticJsonDocument<12288> doc;
-    // DynamicJsonDocument doc(32768);
 
-    DeserializationError error = deserializeJson(doc, defaultProfilesJson);
-    if (error) {
-        Serial.print(F("JSON parsing failed: "));
-        Serial.println(error.c_str());
+    if (!loadDefaultProfilesFromFS(doc)) {
         return;
     }
 
@@ -135,7 +149,6 @@ void parseDefaultProfiles() {
 }
 
 bool loadProfile(const char* json, BrewPhase* phases, size_t maxPhases, size_t& outCount) {
-    // StaticJsonDocument<2048> doc;
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, json);
     if (err) {
@@ -176,7 +189,6 @@ bool loadProfile(const char* json, BrewPhase* phases, size_t maxPhases, size_t& 
 }
 
 void saveProfile(BrewPhase* phases, size_t count, Stream& out) {
-    // StaticJsonDocument<2048> doc;
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
 
