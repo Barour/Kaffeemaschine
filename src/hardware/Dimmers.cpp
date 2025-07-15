@@ -75,11 +75,17 @@ bool PumpDimmer::getState() const {
     return _state;
 }
 
+void PumpDimmer::setCalibration(float flowRate1, float flowRate2, float opvPressure) {
+    _flowRate1 = flowRate1;
+    _flowRate2 = flowRate2;
+    _opvPressure = opvPressure;
+}
+
 float PumpDimmer::getFlow(float pressure) const {
     float powerMultiplier = _state ? float(_power) / 100.0f : 0.0f;
 
     // Shared logic; flow scaling subject to future tuning
-    return powerMultiplier * (-((FlowRate1 - FlowRate2) / FlowRatePres) * pressure + FlowRate1) / 30.0f;
+    return powerMultiplier * (-((_flowRate1 - _flowRate2) / _opvPressure) * pressure + _flowRate1) / 30.0f;
 }
 
 void PumpDimmer::setControlMethod(ControlMethod method) {

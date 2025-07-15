@@ -138,7 +138,7 @@ float PidResults[LOOP_HISTORY_SIZE][TYPE_HISTORY_SIZE]; // Output, Target, Flow,
 #include "utils/timingDebug.h"
 
 Switch* waterTankSensor = nullptr;
-Switch* encoderSw = nullptr;
+Switch* encoderSwitch = nullptr;
 
 GPIOPin* statusLedPin = nullptr;
 GPIOPin* brewLedPin = nullptr;
@@ -1090,7 +1090,7 @@ void setup() {
     }
 
     if (config.get<bool>("hardware.switches.encoder.enabled")) {
-        encoderSw = new IOSwitch(PIN_ROTARY_SW, GPIOPin::IN_PULLUP, Switch::TOGGLE, Switch::NORMALLY_CLOSED, Switch::NORMALLY_CLOSED);
+        encoderSwitch = new IOSwitch(PIN_ROTARY_SW, GPIOPin::IN_PULLUP, Switch::TOGGLE, Switch::NORMALLY_CLOSED, Switch::NORMALLY_CLOSED);
         initEncoder();
     }
 
@@ -1253,18 +1253,21 @@ void setup() {
 
     listLittleFSRoot();
 
-    if (config.get<bool>("dimmer.enabled")) {
+    if (config.get<bool>("dimmer.enabled") && config.get<bool>("hardware.sensors.pressure.enabled")) {
         parseDefaultProfiles();
         populateProfileNames();
         profilesCount = loadedProfiles.size();
         LOGF(INFO, "Loaded %d brew profiles", profilesCount);
-        currentProfileIndex = selectedProfile;
+        currentProfileIndex = config.get<int>("dimmer.profile");
+
         if (currentProfileIndex >= profilesCount) {
             currentProfileIndex = 0;
         }
+
         dimmerTypeHandler();
 
         BrewProfile* profile = getProfile(currentProfileIndex);
+        
         if (profile) {
             profileName = profile->name;
 
@@ -1292,6 +1295,23 @@ void setup() {
         //    profileNames.size(),
         //    "Profile to control the pump during brew"
         //);
+
+        // this shouldnt ever be needed, need to test it gets initialised
+        if (!config.get<float>("dimmer.calibration.flow_rate1") || !config.get<float>("dimmer.calibration.flow_rate2") || !config.get<float>("dimmer.calibration.opv_pressure")) {
+            config.set<float>("dimmer.calibration.flow_rate1", PUMP_CALIBRATE_FLOW1);
+            config.set<float>("dimmer.calibration.flow_rate2", PUMP_CALIBRATE_FLOW2);
+            config.set<float>("dimmer.calibration.opv_pressure", PUMP_OPV_PRESSURE);
+        }
+
+        auto* dimmer = static_cast<PumpDimmer*>(pumpRelay.get());
+        dimmer->setCalibration(config.get<float>("dimmer.calibration.flow_rate1"), config.get<float>("dimmer.calibration.flow_rate2"), config.get<float>("dimmer.calibration.opv_pressure"));
+    }
+    else {
+        config.set<int>("dimmer.mode", POWER);
+
+        if (!config.save()) {
+            LOG(ERROR, "Failed to save config to filesystem!");
+        }
     }
 }
 

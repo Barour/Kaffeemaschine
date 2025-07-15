@@ -278,6 +278,9 @@ class Config {
             _configDefs.emplace("dimmer.phase.flow.ki", ConfigDef::forDouble(PHASE_FLOW_KI, PUMP_KI_MIN, PUMP_KI_MAX));
             _configDefs.emplace("dimmer.phase.flow.kd", ConfigDef::forDouble(PHASE_FLOW_KD, PUMP_KD_MIN, PUMP_KD_MAX));
             _configDefs.emplace("dimmer.i_max", ConfigDef::forDouble(PUMP_I_MAX, PUMP_I_MAX_MIN, PUMP_I_MAX_MAX));
+            _configDefs.emplace("dimmer.calibration.flow_rate1", ConfigDef::forDouble(PUMP_CALIBRATE_FLOW1, PUMP_CALIBRATION_FLOW_MIN, PUMP_CALIBRATION_FLOW_MAX));
+            _configDefs.emplace("dimmer.calibration.flow_rate2", ConfigDef::forDouble(PUMP_CALIBRATE_FLOW2, PUMP_CALIBRATION_FLOW_MIN, PUMP_CALIBRATION_FLOW_MAX));
+            _configDefs.emplace("dimmer.calibration.opv_pressure", ConfigDef::forDouble(PUMP_OPV_PRESSURE, PUMP_PRESSURE_SETPOINT_MIN, PUMP_PRESSURE_SETPOINT_MAX));
 
             // PID steam
             _configDefs.emplace("pid.steam.kp", ConfigDef::forDouble(STEAMKP, PID_KP_STEAM_MIN, PID_KP_STEAM_MAX));

@@ -19,6 +19,7 @@ class PumpDimmer : public PumpControl {
         void off();
         bool getState() const;
         float getFlow(float pressure) const;
+        void setCalibration(float flowRate1, float flowRate2, float opvPressure);
 
         void setControlMethod(ControlMethod method);
         ControlMethod getControlMethod() const;
@@ -34,6 +35,9 @@ class PumpDimmer : public PumpControl {
         unsigned long _lastZC;
         ControlMethod _method;
         hw_timer_t* _timer;
+        float _flowRate1 = 292.4;
+        float _flowRate2 = 135.6;
+        float _opvPressure = 10.0;
 
         enum class TimerPhase {
             DELAY,

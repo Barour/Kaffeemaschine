@@ -2,10 +2,10 @@
 
 ESP32Encoder encoder;
 
-unsigned long startMillisEncoderSw = 0;
+unsigned long startMillisEncoderSwitch = 0;
 unsigned long EncoderSwitchBackflushInterval = 2000;
 unsigned long EncoderSwitchControlInterval = 800;
-bool encoderSwPressed = false;
+bool encoderSwitchPressed = false;
 
 void initEncoder() {
     ESP32Encoder::useInternalWeakPullResistors = puType::up;
@@ -28,7 +28,7 @@ int getEncoderDelta(void) {
 }
 
 void encoderHandler() {
-    if (!config.get<bool>("hardware.switches.encoder.enabled")) {
+    if (!config.get<bool>("hardware.switches.encoder.enabled") || encoderSwitch == nullptr) {
         return;
     }
 
@@ -37,29 +37,24 @@ void encoderHandler() {
     if (machineState != kBackflush) {
         if (delta != 0) {
             if (menuLevel == 1) {
-                dimmerMode = constrain(dimmerMode + delta, 0, 3);
-                config.set<int>("dimmer.mode", dimmerMode);
+                config.set<int>("dimmer.mode", constrain(config.get<int>("dimmer.mode") + delta, 0, 3));
             }
             else if (menuLevel == 2) {
-                switch (dimmerMode) {
+                switch (config.get<int>("dimmer.mode")) {
                     case POWER:
-                        pumpPowerSetpoint = constrain(pumpPowerSetpoint + delta, PUMP_POWER_SETPOINT_MIN, PUMP_POWER_SETPOINT_MAX);
-                        config.set<double>("dimmer.setpoint.power", pumpPowerSetpoint);
+                        config.set<double>("dimmer.setpoint.power", constrain(config.get<float>("dimmer.setpoint.power") + delta, PUMP_POWER_SETPOINT_MIN, PUMP_POWER_SETPOINT_MAX));
                         break;
 
                     case PRESSURE:
-                        pumpPressureSetpoint = constrain(pumpPressureSetpoint + ((float)delta * 0.1), PUMP_PRESSURE_SETPOINT_MIN, PUMP_PRESSURE_SETPOINT_MAX);
-                        config.set<double>("dimmer.setpoint.pressure", pumpPressureSetpoint);
+                        config.set<double>("dimmer.setpoint.pressure", constrain(config.get<float>("dimmer.setpoint.pressure") + ((float)delta * 0.1), PUMP_PRESSURE_SETPOINT_MIN, PUMP_PRESSURE_SETPOINT_MAX));
                         break;
 
                     case FLOW:
-                        pumpFlowSetpoint = constrain(pumpFlowSetpoint + ((float)delta * 0.1), PUMP_FLOW_SETPOINT_MIN, PUMP_FLOW_SETPOINT_MAX);
-                        config.set<double>("dimmer.setpoint.flow", pumpFlowSetpoint);
+                        config.set<double>("dimmer.setpoint.flow", constrain(config.get<float>("dimmer.setpoint.flow") + ((float)delta * 0.1), PUMP_FLOW_SETPOINT_MIN, PUMP_FLOW_SETPOINT_MAX));
                         break;
 
                     case PROFILE:
-                        selectedProfile = constrain(selectedProfile + delta, 0, 11);
-                        config.set<int>("dimmer.profile", selectedProfile);
+                        config.set<int>("dimmer.profile", constrain(config.get<int>("dimmer.profile") + delta, 0, 11));
                         break;
 
                     default:
@@ -69,24 +64,24 @@ void encoderHandler() {
         }
     }
 
-    if (encoderSw->isPressed()) {
-        if (encoderSwPressed == false) {
-            startMillisEncoderSw = millis();
-            encoderSwPressed = true;
+    if (encoderSwitch->isPressed()) {
+        if (encoderSwitchPressed == false) {
+            startMillisEncoderSwitch = millis();
+            encoderSwitchPressed = true;
         }
     }
     else {
-        if (encoderSwPressed == true) {
-            unsigned long duration = millis() - startMillisEncoderSw;
+        if (encoderSwitchPressed == true) {
+            unsigned long duration = millis() - startMillisEncoderSwitch;
             if (duration > EncoderSwitchBackflushInterval) { // toggle every interval
                 if (machineState == kBackflush) {
                     backflushOn = false;
-                    startMillisEncoderSw = millis();
+                    startMillisEncoderSwitch = millis();
                 }
 
                 if (machineState == kPidNormal) {
                     backflushOn = true;
-                    startMillisEncoderSw = millis();
+                    startMillisEncoderSwitch = millis();
                 }
             }
             else if (duration > EncoderSwitchControlInterval) { // toggle every interval
@@ -102,6 +97,6 @@ void encoderHandler() {
             LOGF(INFO, "Rotary Encoder Button down for: %lu ms", duration);
         }
 
-        encoderSwPressed = false;
+        encoderSwitchPressed = false;
     }
 }
