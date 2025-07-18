@@ -101,6 +101,7 @@ float inputPressure = 0;
 float inputPressureFilter = 0;
 const unsigned long intervalPressure = 20;
 unsigned long previousMillisPressure; // initialisation at the end of init()
+float pumpFlowRateFilter = 0;
 
 // timing flags
 bool timingDebugActive = false;
@@ -167,6 +168,7 @@ char* number2string(float in);
 char* number2string(int in);
 char* number2string(unsigned int in);
 float filterPressureValue(float input);
+float filterFlowValue(float input);
 int writeSysParamsToMQTT(bool continueOnError);
 void updateStandbyTimer();
 void resetStandbyTimer();
@@ -228,9 +230,10 @@ double lastBrewSetpoint = 0.0;
 #include "pumpController.h"
 
 // Other variables
-boolean emergencyStop = false;                // Emergency stop if temperature is too high
-constexpr double EmergencyStopTemp = 145;     // Temp EmergencyStopTemp
-float inX = 0, inY = 0, inOld = 0, inSum = 0; // used for filterPressureValue()
+boolean emergencyStop = false;                    // Emergency stop if temperature is too high
+constexpr double EmergencyStopTemp = 145;         // Temp EmergencyStopTemp
+float inX = 0, inY = 0, inOld = 0, inSum = 0;     // used for filterPressureValue()
+float inXF = 0, inYF = 0, inOldF = 0, inSumF = 0; // used for filterFlowValue()
 boolean setupDone = false;
 
 // Water tank sensor
@@ -433,6 +436,15 @@ float filterPressureValue(const float input) {
     inOld = inSum;
 
     return inSum;
+}
+
+float filterFlowValue(const float inputF) {
+    inXF = static_cast<float>(inputF * 0.2); // 0.3
+    inYF = static_cast<float>(inOldF * 0.8); // 0.7
+    inSumF = inXF + inYF;
+    inOldF = inSumF;
+
+    return inSumF;
 }
 
 /**
@@ -1439,7 +1451,8 @@ void loopPid() {
             if (pumpRelay) {
                 if (pumpRelay->getType() == PumpControlType::DIMMER) {
                     auto* dimmer = static_cast<PumpDimmer*>(pumpRelay.get());
-                    pumpFlowRate = dimmer->getFlow(inputPressureFilter);
+                    pumpFlowRate = dimmer->getFlow(inputPressure);
+                    pumpFlowRateFilter = filterFlowValue(pumpFlowRate);
                 }
             }
         }
