@@ -97,7 +97,26 @@ inline void checkWeight() {
     }
 
     if (scaleType == 0) {
-        currReadingWeight = w1 + w2;
+        newWeight = w1 + w2;
+        if(newWeight != currReadingWeight) {
+            weightHistory[wIndex] = newWeight;
+            weightTime[wIndex] = millis();
+            float tempFlow = 1000*(newWeight - weightHistory[lastWIndex])/((float)(weightTime[wIndex]-weightTime[lastWIndex]));
+            
+            if (tempFlow < 0) {
+                flowGS = 0;
+            }
+            else if (tempFlow > 12.0) {
+                flowGS = 12.0;
+            }
+            else {
+                flowGS = tempFlow;
+            }
+            
+            lastWIndex = wIndex;
+            wIndex = (wIndex + 1) % 5;
+        }
+        currReadingWeight = newWeight;
     }
     else {
         currReadingWeight = w1;

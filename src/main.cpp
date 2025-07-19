@@ -218,6 +218,12 @@ float scaleCalibration = SCALE_CALIBRATION_FACTOR;
 float scale2Calibration = SCALE2_CALIBRATION_FACTOR;
 float scaleKnownWeight = SCALE_KNOWN_WEIGHT;
 double targetBrewWeight = TARGET_BREW_WEIGHT;
+float weightHistory[5] = {0,0,0,0,0};
+unsigned long weightTime[5] = {0,0,0,0,0};
+float newWeight = 0.0;
+float flowGS = 0.0;
+int wIndex = 0;
+int lastWIndex = 4;
 
 // PID - values for offline brew detection
 bool useBDPID = false;
