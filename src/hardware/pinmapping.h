@@ -25,10 +25,10 @@
 #define PIN_TEMPSENSOR      16
 #define PIN_WATERTANKSENSOR 23
 #define PIN_HXDAT           33 // Brew scale data pin 1
-//#define PIN_HXDAT  32 // Default Brew scale data pin 1
+// #define PIN_HXDAT  32 // Default Brew scale data pin 1
 #define PIN_HXDAT2 25 // Brew scale data pin 2
-#define PIN_HXCLK           23 // Brew scale clock pin 1
-//#define PIN_HXCLK  33 // Default Brew scale clock pin
+#define PIN_HXCLK  23 // Brew scale clock pin 1
+// #define PIN_HXCLK  33 // Default Brew scale clock pin
 #define PIN_HXCLK2 32 // Brew scale clock pin 2
 // Pin mapping for MAX6675 temperature sensor
 #define PIN_TEMPERATURE_SO  12

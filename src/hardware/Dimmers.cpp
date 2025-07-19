@@ -1,5 +1,19 @@
 #include "Dimmers.h"
 
+/*unsigned int powerbuf[101] = {5695,5660,5625,5589,5554,5519,5484,5449,5414,5379,5343,
+5308,5273,5238,5203,5168,5133,5097,5062,5027,4992,
+4957,4922,4889,4859,4828,4797,4766,4735,4704,4673,
+4643,4612,4581,4550,4519,4488,4457,4426,4396,4365,
+4334,4303,4272,4241,4210,4179,4149,4115,4073,4030,
+3988,3946,3904,3861,3819,3777,3734,3692,3650,3607,
+3565,3523,3481,3438,3396,3354,3305,3253,3201,3149,
+3097,3045,2993,2941,2889,2838,2786,2734,2682,2630,
+2578,2514,2440,2367,2293,2219,2146,2072,1998,1924,
+1851,1777,1641,1498,1355,1213,1070,853,526,200};*/
+
+unsigned int delayLowLut[9] = {5695, 5343, 4992, 4673, 4365, 4030, 3607, 3149, 2630};
+unsigned int delayHighLut[21] = {2630, 2578, 2514, 2440, 2367, 2293, 2219, 2146, 2072, 1998, 1924, 1851, 1777, 1641, 1498, 1355, 1213, 1070, 853, 526, 200};
+
 const char* controlMethodToString(PumpDimmer::ControlMethod method) {
     switch (method) {
         case PumpDimmer::ControlMethod::PSM:
@@ -23,7 +37,26 @@ PumpDimmer::PumpDimmer(GPIOPin& outputPin, GPIOPin& zeroCrossPin, int timerNum) 
 void PumpDimmer::begin() {
     _out.write(LOW);
 
-    _timer = timerBegin(_timerNum, 80, true); // 80 prescaler = 1 µs ticks (assuming 80 MHz APB clock)
+    unsigned long now = 0;
+
+    while (!_zc.read())
+        ;
+    _lastZC = micros();
+    delay(5);
+    while (_zc.read())
+        ;
+    delay(5);
+    while (!_zc.read())
+        ;
+    now = micros();
+    _hz = 1000000.0f / (float)(now - _lastZC);
+
+    if (_hz > 55.0f) {
+        _maxDelay = 4717; // 60hz
+        _minDelay = 167;
+    }
+
+    _timer = timerBegin(_timerNum, 80, true); // 80 prescaler = 1 µs ticks
 
     timerAttachInterrupt(
         _timer,
@@ -50,8 +83,48 @@ void PumpDimmer::begin() {
     }
 }
 
+int PumpDimmer::getInterpolatedDelay(float powerPercent) {
+    if (powerPercent >= 100) {
+        return delayHighLut[20];
+    }
+
+    if (powerPercent <= 0) {
+        return delayLowLut[0];
+    }
+
+    if (powerPercent < 80.0f) {
+        // Use coarse LUT
+        float stepSize = 10.0f;
+        int index = powerPercent / 10;
+        float fraction = (powerPercent - (index * stepSize)) / stepSize;
+        float delayLow = delayLowLut[index];
+        float delayHigh = delayLowLut[index + 1];
+
+        return delayLow + fraction * (delayHigh - delayLow);
+    }
+    else {
+        // Use fine LUT
+        float finePower = powerPercent - 80.0f; // 0 to 20
+        int index = finePower;                  // Integer percent (0–20)
+        float fraction = finePower - index;
+        float delayLow = delayHighLut[index];
+        float delayHigh = delayHighLut[index + 1];
+
+        return delayLow + fraction * (delayHigh - delayLow);
+    }
+}
+
 void PumpDimmer::setPower(int power) {
     _power = constrain((int)power, 0, 100);
+    if (_method == ControlMethod::PHASE) {
+        float pressureScaler = _pressure * 6.0f;
+        _scaledPower = pressureScaler + (100 - pressureScaler) * (_power * 0.01f);
+        _delayMicros = instance->getInterpolatedDelay(_scaledPower); // Lower delay = more power (fired earlier)
+    }
+}
+
+void PumpDimmer::setPressure(float pressure) {
+    _pressure = pressure;
 }
 
 int PumpDimmer::getPower() const {
@@ -75,17 +148,30 @@ bool PumpDimmer::getState() const {
     return _state;
 }
 
+float PumpDimmer::getFrequency() const {
+    return _hz;
+}
+
 void PumpDimmer::setCalibration(float flowRate1, float flowRate2, float opvPressure) {
-    _flowRate1 = flowRate1;
-    _flowRate2 = flowRate2;
-    _opvPressure = opvPressure;
+    _opvPressureInv = 1.0f / opvPressure;
+    _flowRate1 = flowRate1 * 0.03333333f;
+    _flowRate2 = flowRate2 * 0.03333333f;
+    _deltaFlow = _flowRate2 - _flowRate1;
 }
 
 float PumpDimmer::getFlow(float pressure) const {
-    float powerMultiplier = _state ? float(_power) / 100.0f : 0.0f;
+    float result = 0.0f;
 
-    // Shared logic; flow scaling subject to future tuning
-    return powerMultiplier * (-((_flowRate1 - _flowRate2) / _opvPressure) * pressure + _flowRate1) / 30.0f;
+    if (_method == ControlMethod::PSM) {
+        float powerMultiplier = _state ? float(_power) * 0.01f : 0.0f;
+        result = powerMultiplier * (_deltaFlow * _opvPressureInv * pressure + _flowRate1);
+    }
+    else {
+        float powerMultiplier = _state ? _scaledPower * 0.01f : 0.0f;
+        result = powerMultiplier * _flowRate1 - 0.06f * (1 - powerMultiplier) * pressure * _flowRate1 + pressure * _deltaFlow * _opvPressureInv;
+    }
+
+    return result > 0.0f ? result : 0.0f;
 }
 
 void PumpDimmer::setControlMethod(ControlMethod method) {
@@ -153,9 +239,9 @@ void PumpDimmer::handlePhaseZeroCross() {
 
     _phaseState = TimerPhase::DELAY;
     timerWrite(_timer, 0);
-    uint32_t delayMicros = map(_power, 0, 100, 8000, 200); // Lower delay = more power (fired earlier)
+    // uint32_t delayMicros = map(_power, 0, 100, _maxDelay, _minDelay); // Lower delay = more power (fired earlier)
     timerAlarmDisable(_timer);
-    timerAlarmWrite(_timer, delayMicros, false);
+    timerAlarmWrite(_timer, _delayMicros, false);
     timerAlarmEnable(_timer);
 }
 

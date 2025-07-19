@@ -13,11 +13,14 @@ class PumpDimmer : public PumpControl {
         PumpDimmer(GPIOPin& outputPin, GPIOPin& zeroCrossPin, int timerNum);
 
         void begin();
+        int getInterpolatedDelay(float powerPercent);
         void setPower(int power);
+        void setPressure(float pressure);
         int getPower() const;
         void on();
         void off();
         bool getState() const;
+        float getFrequency() const;
         float getFlow(float pressure) const;
         void setCalibration(float flowRate1, float flowRate2, float opvPressure);
 
@@ -30,14 +33,21 @@ class PumpDimmer : public PumpControl {
         GPIOPin& _zc;
         int _timerNum;
         int _power;
+        float _scaledPower;
         int _psmAccumulated;
+        float _pressure;
+        float _hz;
+        int _maxDelay = 5660;
+        int _minDelay = 200;
         bool _state;
-        unsigned long _lastZC;
+        uint32_t _delayMicros = 200;
+        unsigned long _lastZC = 0;
         ControlMethod _method;
         hw_timer_t* _timer;
-        float _flowRate1 = 292.4;
-        float _flowRate2 = 135.6;
-        float _opvPressure = 10.0;
+        float _flowRate1 = 292.4f;    // g in 30s using flush
+        float _flowRate2 = 124.4f;    // g in 30s using water switch
+        float _deltaFlow = -5.6f;     // difference in flow in mL/s
+        float _opvPressureInv = 0.1f; // 10 Bars at OPV
 
         enum class TimerPhase {
             DELAY,
@@ -53,8 +63,4 @@ class PumpDimmer : public PumpControl {
         static void IRAM_ATTR onZeroCrossPhaseStatic(); // Phase
 
         static PumpDimmer* instance;
-
-        static constexpr float FlowRate1 = 292.4f;   // g in 30s using flush
-        static constexpr float FlowRate2 = 135.6f;   // g in 30s using water switch
-        static constexpr float FlowRatePres = 10.0f; // Bars at OPV
 };

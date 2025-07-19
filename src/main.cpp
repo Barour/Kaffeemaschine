@@ -117,6 +117,7 @@ float inputPressure = 0;
 float inputPressureFilter = 0;
 const unsigned long intervalPressure = 20;
 unsigned long previousMillisPressure; // initialisation at the end of init()
+float pumpFlowRateFilter = 0;
 
 // timing flags
 bool timingDebugActive = false;
@@ -186,6 +187,7 @@ char* number2string(float in);
 char* number2string(int in);
 char* number2string(unsigned int in);
 float filterPressureValue(float input);
+float filterFlowValue(float input);
 int writeSysParamsToMQTT(bool continueOnError);
 void updateStandbyTimer();
 void resetStandbyTimer();
@@ -256,9 +258,10 @@ double lastBrewSetpoint = 0.0;
 #include "pumpController.h"
 
 // Other variables
-boolean emergencyStop = false;                // Emergency stop if temperature is too high
-constexpr double EmergencyStopTemp = 145;     // Temp EmergencyStopTemp
-float inX = 0, inY = 0, inOld = 0, inSum = 0; // used for filterPressureValue()
+boolean emergencyStop = false;            // Emergency stop if temperature is too high
+constexpr double EmergencyStopTemp = 145; // Temp EmergencyStopTemp
+float inX = 0, inY = 0, inOld = 0, inSum = 0;
+float inXF = 0, inYF = 0, inOldF = 0, inSumF = 0;
 boolean setupDone = false;
 
 // Water tank sensor
@@ -495,6 +498,15 @@ float filterPressureValue(const float input) {
     inOld = inSum;
 
     return inSum;
+}
+
+float filterFlowValue(const float inputF) {
+    inXF = static_cast<float>(inputF * 0.2); // 0.3
+    inYF = static_cast<float>(inOldF * 0.8); // 0.7
+    inSumF = inXF + inYF;
+    inOldF = inSumF;
+
+    return inSumF;
 }
 
 /**
@@ -1033,6 +1045,17 @@ void setup() {
         auto* dimmer = static_cast<PumpDimmer*>(pumpRelay.get());
         dimmer->begin();
         dimmer->setPower(0);
+        dimmer->setControlMethod((config.get<int>("dimmer.type") == 1) ? PumpDimmer::ControlMethod::PHASE : PumpDimmer::ControlMethod::PSM);
+        LOGF(INFO, "Frequency: %0.01f", dimmer->getFrequency());
+
+        // this shouldnt ever be needed, need to test it gets initialised
+        if (!config.get<float>("dimmer.calibration.flow_rate1") || !config.get<float>("dimmer.calibration.flow_rate2") || !config.get<float>("dimmer.calibration.opv_pressure")) {
+            config.set<float>("dimmer.calibration.flow_rate1", PUMP_CALIBRATE_FLOW1);
+            config.set<float>("dimmer.calibration.flow_rate2", PUMP_CALIBRATE_FLOW2);
+            config.set<float>("dimmer.calibration.opv_pressure", PUMP_OPV_PRESSURE);
+        }
+
+        dimmer->setCalibration(config.get<float>("dimmer.calibration.flow_rate1"), config.get<float>("dimmer.calibration.flow_rate2"), config.get<float>("dimmer.calibration.opv_pressure"));
     }
     else {
         pumpRelay = std::make_unique<Relay>(pumpRelayPin, pumpTriggerType);
@@ -1267,7 +1290,7 @@ void setup() {
         dimmerTypeHandler();
 
         BrewProfile* profile = getProfile(currentProfileIndex);
-        
+
         if (profile) {
             profileName = profile->name;
 
@@ -1281,30 +1304,6 @@ void setup() {
         else {
             LOG(WARNING, "Profile not found");
         }
-
-        // parameterRegistry.remove("dimmer.profile");
-
-        // Re-add with actual profile names
-        // addEnumConfigParam(
-        //    "dimmer.profile",
-        //    "Dimmer Profile Selection",
-        //    sPumpPidSection,
-        //    1412,
-        //   &selectedProfile,
-        //    profileNames.data(),
-        //    profileNames.size(),
-        //    "Profile to control the pump during brew"
-        //);
-
-        // this shouldnt ever be needed, need to test it gets initialised
-        if (!config.get<float>("dimmer.calibration.flow_rate1") || !config.get<float>("dimmer.calibration.flow_rate2") || !config.get<float>("dimmer.calibration.opv_pressure")) {
-            config.set<float>("dimmer.calibration.flow_rate1", PUMP_CALIBRATE_FLOW1);
-            config.set<float>("dimmer.calibration.flow_rate2", PUMP_CALIBRATE_FLOW2);
-            config.set<float>("dimmer.calibration.opv_pressure", PUMP_OPV_PRESSURE);
-        }
-
-        auto* dimmer = static_cast<PumpDimmer*>(pumpRelay.get());
-        dimmer->setCalibration(config.get<float>("dimmer.calibration.flow_rate1"), config.get<float>("dimmer.calibration.flow_rate2"), config.get<float>("dimmer.calibration.opv_pressure"));
     }
     else {
         config.set<int>("dimmer.mode", POWER);
@@ -1502,7 +1501,8 @@ void loopPid() {
 
             if (pumpRelay->getType() == PumpControlType::DIMMER) {
                 auto* dimmer = static_cast<PumpDimmer*>(pumpRelay.get());
-                pumpFlowRate = dimmer->getFlow(inputPressureFilter);
+                pumpFlowRate = dimmer->getFlow(inputPressure);
+                pumpFlowRateFilter = filterFlowValue(pumpFlowRate);
             }
         }
     }

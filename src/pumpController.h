@@ -119,7 +119,7 @@ void dimmerTypeHandler() {
     if (pumpRelay) {
         if (pumpRelay->getType() == PumpControlType::DIMMER) {
             auto* dimmer = static_cast<PumpDimmer*>(pumpRelay.get());
-            dimmer->setControlMethod((config.get<int>("dimmer.mode") == 1) ? PumpDimmer::ControlMethod::PHASE : PumpDimmer::ControlMethod::PSM);
+            dimmer->setControlMethod((config.get<int>("dimmer.type") == 1) ? PumpDimmer::ControlMethod::PHASE : PumpDimmer::ControlMethod::PSM);
         }
     }
 }
@@ -376,8 +376,19 @@ void loopPump() {
             setPressure = 9.0;
         }
         else if (machineState == kManualFlush) {
-            pumpControlMode = FLOW;
-            setPumpFlowRate = 10.0;
+
+            if (config.get<int>("dimmer.mode") == FLOW) {
+                pumpControlMode = FLOW;
+                setPumpFlowRate = config.get<float>("dimmer.setpoint.flow");
+            }
+            else if (config.get<int>("dimmer.mode") == POWER) {
+                pumpControlMode = POWER;
+                dimmerPower = config.get<float>("dimmer.setpoint.power");
+            }
+            else {
+                pumpControlMode = POWER;
+                dimmerPower = 100;
+            }
         }
         else {
             switch (config.get<int>("dimmer.mode")) {
@@ -421,6 +432,23 @@ void loopPump() {
                     pumpdt = (currentMillisPumpControl - previousMillisPumpControl) / 1000.0; // set to between 50ms and 100ms
                 }
 
+                if (config.get<int>("dimmer.type") == 0) {
+                    pressureKp = config.get<float>("dimmer.psm.pressure.kp");
+                    pressureKi = config.get<float>("dimmer.psm.pressure.ki");
+                    pressureKd = config.get<float>("dimmer.psm.pressure.kd");
+                    flowKp = config.get<float>("dimmer.psm.flow.kp");
+                    flowKi = config.get<float>("dimmer.psm.flow.ki");
+                    flowKd = config.get<float>("dimmer.psm.flow.kd");
+                }
+                else {
+                    pressureKp = config.get<float>("dimmer.phase.pressure.kp");
+                    pressureKi = config.get<float>("dimmer.phase.pressure.ki");
+                    pressureKd = config.get<float>("dimmer.phase.pressure.kd");
+                    flowKp = config.get<float>("dimmer.phase.flow.kp");
+                    flowKi = config.get<float>("dimmer.phase.flow.ki");
+                    flowKd = config.get<float>("dimmer.phase.flow.kd");
+                }
+
                 PidResults[loopIndexPid][8] = currentMillisPumpControl - previousMillisPumpControl;
                 previousMillisPumpControl = currentMillisPumpControl;
 
@@ -443,13 +471,13 @@ void loopPump() {
                         inputPID = inputPressureFilter; // inputPressure;
                         targetPID = setPressure;
                         // Smooth flow override, doesnt work well in pressure
-                        targetPID = applySmoothOverride(targetPID, pumpFlowRate, flowPressureCeiling, flowPressureRange, 2); // 1 is linear reduction, 2 quadratic, 3 cubic
+                        // targetPID = applySmoothOverride(targetPID, pumpFlowRateFilter, flowPressureCeiling, flowPressureRange, 2); // 1 is linear reduction, 2 quadratic, 3 cubic
                         inputKp = pressureKp;
                         inputKi = pressureKi;
                         inputKd = pressureKd;
                     }
                     else if (pumpControlMode == FLOW) {
-                        inputPID = pumpFlowRate;
+                        inputPID = pumpFlowRateFilter; // pumpFlowRate
                         targetPID = setPumpFlowRate;
                         // Smooth pressure override
                         targetPID = applySmoothOverride(targetPID, inputPressureFilter, flowPressureCeiling, flowPressureRange, 2); // 1 is linear reduction, 2 quadratic, 3 cubic
@@ -457,10 +485,11 @@ void loopPump() {
                         inputKi = flowKi;
                         inputKd = flowKd;
                     }
+                    float iMax = config.get<float>("dimmer.i_max") / inputKi;
 
                     float error = targetPID - inputPID;
                     pumpIntegral += error * pumpdt; // Integrate error
-                    pumpIntegral = constrain(pumpIntegral, -config.get<float>("dimmer.i_max"), config.get<float>("dimmer.i_max"));
+                    pumpIntegral = constrain(pumpIntegral, -iMax, iMax);
                     float pumpderivative = (error - previousError) / pumpdt;
                     previousError = error;
 
@@ -473,14 +502,10 @@ void loopPump() {
                     dimmerPower = constrain((int)output, PUMP_POWER_SETPOINT_MIN, PUMP_POWER_SETPOINT_MAX);
                 }
 
-                // Only update if power changed
                 if (pumpRelay->getType() == PumpControlType::DIMMER) {
                     auto* dimmer = static_cast<PumpDimmer*>(pumpRelay.get());
-                    dimmer->setCalibration(config.get<float>("dimmer.calibration.flow_rate1"), config.get<float>("dimmer.calibration.flow_rate2"), config.get<float>("dimmer.calibration.opv_pressure"));
-
-                    if (dimmer->getPower() != dimmerPower) {
-                        dimmer->setPower(dimmerPower);
-                    }
+                    dimmer->setPressure(inputPressureFilter);
+                    dimmer->setPower(dimmerPower);
                 }
 
                 // DEBUGGING

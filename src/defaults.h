@@ -63,12 +63,12 @@
 #define PHASE_FLOW_KP             8.0               // PID Phase control Flow target Kp
 #define PHASE_FLOW_KI             30.0              // PID Phase control Flow target Ki
 #define PHASE_FLOW_KD             0.0               // PID Phase control Flow target Kd
-#define PUMP_I_MAX                8.0               // PID Dimmer integral anti windup
+#define PUMP_I_MAX                80.0              // PID Dimmer integral anti windup, value out of 100
 #define PUMP_POWER_SETPOINT       100.0             // PID Power target
 #define PUMP_PRESSURE_SETPOINT    9.0               // PID Pressure target
 #define PUMP_FLOW_SETPOINT        8.0               // PID Flow target
 #define PUMP_CALIBRATE_FLOW1      292.4             // Weight of water out of the group head in 30s
-#define PUMP_CALIBRATE_FLOW2      135.6             // Weight of water out of the return line in 30s
+#define PUMP_CALIBRATE_FLOW2      124.4             // Weight of water out of the return line in 30s
 #define PUMP_OPV_PRESSURE         10.0              // Pressure when OPV valve is open
 
 #define PID_KP_REGULAR_MIN            0.0
