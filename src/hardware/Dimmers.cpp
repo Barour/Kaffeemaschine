@@ -1,6 +1,6 @@
 #include "Dimmers.h"
 
-unsigned int delayLowLut[9]  = {5695, 5343, 4992, 4673, 4365, 4030, 3607, 3149, 2630};
+unsigned int delayLowLut[9] = {5695, 5343, 4992, 4673, 4365, 4030, 3607, 3149, 2630};
 unsigned int delayHighLut[21] = {2630, 2578, 2514, 2440, 2367, 2293, 2219, 2146, 2072, 1998, 1924, 1851, 1777, 1641, 1498, 1355, 1213, 1070, 853, 526, 200};
 
 const char* controlMethodToString(PumpDimmer::ControlMethod method) {

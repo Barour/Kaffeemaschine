@@ -46,7 +46,7 @@ BrewProfile* getProfile(size_t i) {
 }
 
 ExitType parseExitType(const char* str) {
-    if (strcmp(str, "flow_over") == 0) {
+    if (strcmp(str, "flow_under") == 0) {
         return EXIT_TYPE_FLOW_UNDER;
     }
     else if (strcmp(str, "flow_over") == 0) {

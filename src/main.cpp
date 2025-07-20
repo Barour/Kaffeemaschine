@@ -218,12 +218,12 @@ float scaleCalibration = SCALE_CALIBRATION_FACTOR;
 float scale2Calibration = SCALE2_CALIBRATION_FACTOR;
 float scaleKnownWeight = SCALE_KNOWN_WEIGHT;
 double targetBrewWeight = TARGET_BREW_WEIGHT;
-float weightHistory[5] = {0,0,0,0,0};
+/*float weightHistory[5] = {0,0,0,0,0};
 unsigned long weightTime[5] = {0,0,0,0,0};
 float newWeight = 0.0;
 float flowGS = 0.0;
 int wIndex = 0;
-int lastWIndex = 4;
+int lastWIndex = 4;*/
 
 // PID - values for offline brew detection
 bool useBDPID = false;
@@ -1438,16 +1438,23 @@ void loopPid() {
     if (pumpRelay->getType() == PumpControlType::DIMMER) {
         if (((millis() - lastBrewEvent) > brewEventInterval) && (machineState == kBrew) && (!mqttUpdateRunning && !hassioUpdateRunning && !displayBufferReady && !temperatureUpdateRunning)) {
             websiteUpdateRunning = true;
+            String tempProfile = " ";
+            String tempPhase = " ";
+
+            if (config.get<int>("dimmer.mode") == PROFILE) {
+                tempProfile = profileName;
+                tempPhase = phaseName;
+            }
 
             // send brew data to website endpoint
             if (pumpControlMode == FLOW) {
-                sendBrewEvent(inputPressureFilter, 0.0, pumpFlowRate, setPumpFlowRate, currBrewWeight, dimmerPower);
+                sendBrewEvent(currBrewTime / 1000, inputPressureFilter, 0.0, pumpFlowRate, setPumpFlowRate, currBrewWeight, dimmerPower, dimmerModes[pumpControlMode], tempProfile, tempPhase);
             }
             else if (pumpControlMode == PRESSURE) {
-                sendBrewEvent(inputPressureFilter, setPressure, pumpFlowRate, 0.0, currBrewWeight, dimmerPower);
+                sendBrewEvent(currBrewTime / 1000, inputPressureFilter, setPressure, pumpFlowRate, 0.0, currBrewWeight, dimmerPower, dimmerModes[pumpControlMode], tempProfile, tempPhase);
             }
             else {
-                sendBrewEvent(inputPressureFilter, 0.0, pumpFlowRate, 0.0, currBrewWeight, dimmerPower);
+                sendBrewEvent(currBrewTime / 1000, inputPressureFilter, 0.0, pumpFlowRate, 0.0, currBrewWeight, dimmerPower, dimmerModes[pumpControlMode], tempProfile, tempPhase);
             }
 
             lastBrewEvent = millis();

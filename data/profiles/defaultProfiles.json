@@ -26,9 +26,10 @@
       {
         "name": "decline",
         "pressure": 6,
+        "flow": 1.5,
         "max_secondary": 6,
         "exit_pressure_under": 6,
-        "seconds": 30,
+        "seconds": 20,
         "exit_type": "pressure_under",
         "transition": "smooth",
         "pump": "pressure"
@@ -92,7 +93,7 @@
         "pressure": 8.6,
         "flow": 1.7,
         "exit_flow_over": 1.7,
-        "seconds": 30,
+        "seconds": 40,
         "exit_type": "flow_over",
         "transition": "smooth",
         "pump": "pressure"

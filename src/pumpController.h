@@ -173,11 +173,11 @@ void runProfile(int profileIndex) {
                 break;
 
             case EXIT_TYPE_FLOW_OVER:
-                exitReached = (pumpFlowRate >= phase.exit_flow_over);
+                exitReached = (pumpFlowRateFilter >= phase.exit_flow_over);
                 break;
 
             case EXIT_TYPE_FLOW_UNDER:
-                exitReached = (pumpFlowRate <= phase.exit_flow_under);
+                exitReached = (pumpFlowRateFilter <= phase.exit_flow_under);
                 break;
         }
 
@@ -188,7 +188,7 @@ void runProfile(int profileIndex) {
         if (exitReached || (currBrewTime > phase.seconds * 1000 + phaseTiming)) {
             lastPressure = inputPressureFilter;
             lastSetPressure = phase.pressure;
-            lastFlow = pumpFlowRate;
+            lastFlow = pumpFlowRateFilter;
             lastSetFlow = phase.flow;
             currentPhaseIndex += 1;
             phaseTiming = currBrewTime;
@@ -201,7 +201,7 @@ void runProfile(int profileIndex) {
                 LOGF(DEBUG, "Moving to Phase %d: %s for %.1f seconds", currentPhaseIndex, profile->phases[currentPhaseIndex].name, profile->phases[currentPhaseIndex].seconds);
             }
             else {
-                LOG(DEBUG, "Brew profile complete");
+                // LOG(DEBUG, "Brew profile complete");
                 brewProfileComplete = true;
                 return;
             }
@@ -220,7 +220,8 @@ void runProfile(int profileIndex) {
     BrewPhase& phase = profile->phases[currentPhaseIndex];
 
     if (phaseReset) {
-        LOGF(DEBUG, "Phase %d: %s for %.1f seconds", currentPhaseIndex, phase.name, phase.seconds);
+        // LOGF(DEBUG, "Phase %d: %s for %.1f seconds", currentPhaseIndex, phase.name, phase.seconds);
+        LOGF(DEBUG, "Phase %s: exit_type=%d, flow_over=%.2f, pressure_over=%.2f, for %.1f seconds", phase.name, phase.exit_type, phase.exit_flow_over, phase.exit_pressure_over, phase.seconds);
 
         if ((phase.transition == TRANSITION_SMOOTH) && (phase.seconds < 1.0)) {
             LOGF(WARNING, "Phase '%s' duration (%.2f s) is less than recommended minimum of 1 second for smooth transitions", phase.name, phase.seconds);

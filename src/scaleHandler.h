@@ -97,12 +97,12 @@ inline void checkWeight() {
     }
 
     if (scaleType == 0) {
-        newWeight = w1 + w2;
+        /*newWeight = w1 + w2;
         if(newWeight != currReadingWeight) {
             weightHistory[wIndex] = newWeight;
             weightTime[wIndex] = millis();
             float tempFlow = 1000*(newWeight - weightHistory[lastWIndex])/((float)(weightTime[wIndex]-weightTime[lastWIndex]));
-            
+
             if (tempFlow < 0) {
                 flowGS = 0;
             }
@@ -112,11 +112,12 @@ inline void checkWeight() {
             else {
                 flowGS = tempFlow;
             }
-            
+
             lastWIndex = wIndex;
             wIndex = (wIndex + 1) % 5;
         }
-        currReadingWeight = newWeight;
+        currReadingWeight = newWeight;*/
+        currReadingWeight = w1 + w2;
     }
     else {
         currReadingWeight = w1;
