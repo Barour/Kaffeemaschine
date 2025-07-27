@@ -167,7 +167,9 @@ inline void scaleCalibrate(const int cellNumber, const int pin) {
 
     const auto scaleKnownWeight = ParameterRegistry::getInstance().getParameterById("hardware.sensors.scale.known_weight")->getValueAs<float>();
 
-    msg = langstring_calibrate_in_progress + String(number2string(scaleKnownWeight)) + "g\n";
+    char buf[12];
+    snprintf(buf, sizeof(buf), "%.1f", scaleKnownWeight);
+    msg = langstring_calibrate_in_progress + String(buf) + "g\n";
     displayWrappedMessage(msg);
     delay(10000);
 
@@ -191,7 +193,8 @@ inline void scaleCalibrate(const int cellNumber, const int pin) {
         ParameterRegistry::getInstance().setParameterValue("hardware.sensors.scale.calibration", calibration);
     }
 
-    msg = langstring_calibrate_complete + String(number2string(calibration)) + "\n";
+    snprintf(buf, sizeof(buf), "%.1f", calibration);
+    msg = langstring_calibrate_complete + String(buf) + "\n";
     displayWrappedMessage(msg);
     delay(2000);
 }

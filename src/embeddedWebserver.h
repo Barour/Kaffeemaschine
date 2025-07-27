@@ -281,7 +281,9 @@ inline void serverSetup() {
             return request->requestAuthentication();
         }
 
-        LOGF(DEBUG, "[Heap] Free: %u  MaxAlloc: %u", ESP.getFreeHeap(), heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT));
+        static unsigned int minimumBlock = heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT);
+        unsigned int freeBlock = heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT);
+        LOGF(DEBUG, "[Heap] Free: %u  MaxAlloc: %u", ESP.getFreeHeap(), freeBlock);
 
         if (request->method() == 1) { // HTTP_GET
             const auto& registry = ParameterRegistry::getInstance();
@@ -295,7 +297,7 @@ inline void serverSetup() {
 
             // Defaults
             int offset = 0;
-            int limit = 20;
+            int limit = 10;
 
             if (request->hasParam("offset")) {
                 offset = request->getParam("offset")->value().toInt();
@@ -305,7 +307,13 @@ inline void serverSetup() {
                 limit = request->getParam("limit")->value().toInt();
             }
 
+            if (offset == 0) {
+                minimumBlock = ESP.getFreeHeap(); // reset minimumBlock to a large value
+            }
+
             AsyncResponseStream* response = request->beginResponseStream("application/json");
+            response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+            response->addHeader("Pragma", "no-cache");
             response->print("{\"parameters\":[");
 
             bool first = true;
@@ -356,13 +364,26 @@ inline void serverSetup() {
                     serializeJson(doc, *response);
 
                     sent++;
-                    LOGF(DEBUG, "[Heap] Free: %u  MaxAlloc: %u, Param: %d", ESP.getFreeHeap(), heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT), filteredParameterCount);
+                    freeBlock = heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT);
+
+                    if (freeBlock < minimumBlock) {
+                        minimumBlock = freeBlock;
+                    }
+
+                    LOGF(DEBUG, "[Heap] Free: %u  MaxAlloc: %u, Param: %d", ESP.getFreeHeap(), freeBlock, filteredParameterCount);
                 }
             }
 
             response->printf("],\"offset\":%d,\"limit\":%d,\"returned\":%d}", offset, limit, sent);
             request->send(response);
-            LOGF(DEBUG, "Free: %u  MaxAlloc: %u", ESP.getFreeHeap(), heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT));
+
+            freeBlock = heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT);
+
+            if (freeBlock < minimumBlock) {
+                minimumBlock = freeBlock;
+            }
+
+            LOGF(DEBUG, "Free: %u  MaxAlloc: %u  Lowest MaxAlloc: %u", ESP.getFreeHeap(), freeBlock, minimumBlock);
         }
         else if (request->method() == 2) { // HTTP_POST
             auto& registry = ParameterRegistry::getInstance();

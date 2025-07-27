@@ -163,10 +163,10 @@ void loopLED();
 void checkWaterTank();
 void printMachineState();
 char const* machinestateEnumToString(MachineState machineState);
-char* number2string(double in);
-char* number2string(float in);
-char* number2string(int in);
-char* number2string(unsigned int in);
+// char* number2string(double in);
+// char* number2string(float in);
+// char* number2string(int in);
+// char* number2string(unsigned int in);
 float filterPressureValue(float input);
 float filterFlowValue(float input);
 int writeSysParamsToMQTT(bool continueOnError);
@@ -217,13 +217,13 @@ bool steamFirstON = false;
 PID bPID(&temperature, &pidOutput, &setpoint, aggKp, aggKi, aggKd, 1, DIRECT);
 
 // Profiles
-#include "brewProfiles.h"
 int currentProfileIndex = 0;
 int currentPhaseIndex = 0;
 float phaseTiming = 0;
 const char* profileName = nullptr;
 const char* phaseName = nullptr;
 double lastBrewSetpoint = 0.0;
+#include "brewProfiles.h"
 
 #include "brewHandler.h"
 #include "hotWaterHandler.h"
@@ -392,6 +392,26 @@ void checkWifi() {
     }
 }
 
+/*
+inline std::string formatValue(double val, int precision = 2) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.*f", precision, val);
+    return std::string(buf);
+}
+
+inline std::string formatValue(int val) {
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%d", val);
+    return std::string(buf);
+}
+
+inline std::string formatValue(unsigned int val) {
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%u", val);
+    return std::string(buf);
+}*/
+
+/*
 char number2string_double[22];
 
 char* number2string(const double in) {
@@ -423,6 +443,7 @@ char* number2string(const unsigned int in) {
 
     return number2string_uint;
 }
+    */
 
 /**
  * @brief Filter input value using exponential moving average filter (using fixed coefficients)
@@ -868,15 +889,19 @@ void wiFiSetup() {
 
         byte mac[6];
         WiFi.macAddress(mac);
-        const String macaddr0 = number2string(mac[0]);
+        /*const String macaddr0 = number2string(mac[0]);
         const String macaddr1 = number2string(mac[1]);
         const String macaddr2 = number2string(mac[2]);
         const String macaddr3 = number2string(mac[3]);
         const String macaddr4 = number2string(mac[4]);
         const String macaddr5 = number2string(mac[5]);
-        const String completemac = macaddr0 + macaddr1 + macaddr2 + macaddr3 + macaddr4 + macaddr5;
+        const String completemac = macaddr0 + macaddr1 + macaddr2 + macaddr3 + macaddr4 + macaddr5;*/
 
-        LOGF(DEBUG, "MAC-ADDRESS: %s", completemac.c_str());
+        char fullMac[18];
+        sprintf(fullMac, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        const String completemac(fullMac);
+
+        LOGF(INFO, "MAC-ADDRESS: %s", completemac.c_str());
 
         if (oledEnabled) {
             displayLogo(langstring_connectwifi1, wm.getWiFiSSID(true));
@@ -1232,10 +1257,12 @@ void setup() {
     }
 
     if (config.get<bool>("dimmer.enabled") && config.get<bool>("hardware.sensors.pressure.enabled")) {
-        parseDefaultProfiles();
-        populateProfileNames();
-        profilesCount = loadedProfiles.size();
-        LOGF(INFO, "Loaded %d brew profiles", profilesCount);
+        loadProfileMetadata(); // loads only names
+        // parseDefaultProfiles();
+        // populateProfileNames();
+        // profilesCount = loadedProfiles.size();
+        profilesCount = profileInfo.size();
+        LOGF(INFO, "Found %d brew profiles", profilesCount);
         currentProfileIndex = config.get<int>("dimmer.profile");
 
         if (currentProfileIndex >= profilesCount) {
@@ -1244,13 +1271,13 @@ void setup() {
 
         dimmerTypeHandler();
 
-        BrewProfile* profile = getProfile(currentProfileIndex);
+        // BrewProfile* profile = getProfile(currentProfileIndex);
+        selectProfileByName(profileInfo[currentProfileIndex].name);
+        if (currentProfile) {
+            profileName = currentProfile->name;
 
-        if (profile) {
-            profileName = profile->name;
-
-            if (profile->phaseCount > 0 && profile->phases) {
-                phaseName = profile->phases[currentPhaseIndex].name; // first phase name
+            if (currentProfile->phaseCount > 0 && currentProfile->phases) {
+                phaseName = currentProfile->phases[currentPhaseIndex].name; // first phase name
             }
             else {
                 phaseName = "No phases";
