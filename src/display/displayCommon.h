@@ -425,62 +425,128 @@ inline void displayStatusbar() {
 }
 
 /**
- * @brief print message
+ * @brief test character char length and return the number of extra spaces required to print special characters
  */
-inline void displayMessage(const String& text1, const String& text2, const String& text3, const String& text4, const String& text5, const String& text6) {
-    u8g2->clearBuffer();
-    u8g2->setCursor(0, 0);
-    u8g2->print(text1);
-    u8g2->setCursor(0, 10);
-    u8g2->print(text2);
-    u8g2->setCursor(0, 20);
-    u8g2->print(text3);
-    u8g2->setCursor(0, 30);
-    u8g2->print(text4);
-    u8g2->setCursor(0, 40);
-    u8g2->print(text5);
-    u8g2->setCursor(0, 50);
-    u8g2->print(text6);
-    u8g2->sendBuffer();
+int check_utf8_char(const String& utf, long i) {
+    unsigned char check = utf[i] & 0xF0;
+    size_t len = utf.length();
+
+    switch (check) {
+        case 0xC0:
+            if ((i + 1) < len && (utf[i + 1] & 0x80) == 0x80) return 1;
+            break;
+
+        case 0xE0:
+            if ((i + 2) < len && (utf[i + 1] & 0x80) == 0x80 && (utf[i + 2] & 0x80) == 0x80) return 2;
+            break;
+
+        case 0xF0:
+            if ((i + 3) < len && (utf[i + 1] & 0x80) == 0x80 && (utf[i + 2] & 0x80) == 0x80 && (utf[i + 3] & 0x80) == 0x80) return 3;
+            break;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief generate multi line prints of text
+ */
+inline void displayWrappedMessage(const String& message, int x, int startY, int spacing, boolean clearSend, boolean wrapWord) {
+    if (clearSend) {
+        u8g2->clearBuffer();
+    }
+
+    if (config.get<int>("display.template") == 4) {
+        u8g2->setFont(u8g2_font_profont10_tf);
+    }
+    else {
+        u8g2->setFont(u8g2_font_profont11_tf);
+    }
+
+    int lineHeight = u8g2->getMaxCharHeight() + spacing;
+    int charWidth = u8g2->getMaxCharWidth();
+    int displayWidth = u8g2->getDisplayWidth();
+    int displayHeight = u8g2->getDisplayHeight();
+
+    int y = startY;
+    int wordCount = 0;
+
+    String newWord;
+    String line;
+    size_t sz;
+    String chr;
+
+    for (size_t i = 0; i <= message.length(); ++i) {
+        char c = message[i];
+        sz = check_utf8_char(message, i);
+        chr = message.substring(i, i + sz + 1);
+
+        if (sz == 0 && (c == ' ' || c == '\n' || c == '\0')) {
+            if (u8g2->getUTF8Width((line + newWord).c_str()) > displayWidth) {
+
+                if (wordCount == 0) {
+                    u8g2->drawUTF8(x, y, newWord.c_str());
+                    y += lineHeight;
+                    line = "";
+                }
+                else {
+                    u8g2->drawUTF8(x, y, line.c_str());
+                    y += lineHeight;
+                    line = newWord + " ";
+                    wordCount = 1;
+                }
+            }
+            else {
+                line += newWord + " ";
+                wordCount += 1;
+            }
+
+            newWord = "";
+
+            if (c == '\n') {
+                u8g2->drawUTF8(x, y, line.c_str());
+                y += lineHeight;
+                line = "";
+                wordCount = 0;
+            }
+        }
+        else {
+            if (wrapWord && (u8g2->getUTF8Width((line + newWord).c_str()) > (displayWidth - charWidth))) {
+                u8g2->drawUTF8(x, y, (line + newWord).c_str());
+                y += lineHeight;
+                line = "";
+                newWord = "";
+                wordCount = 0;
+            }
+
+            newWord += chr;
+        }
+
+        i += sz;
+    }
+
+    if (line.length() > 0) {
+        u8g2->drawUTF8(x, y, line.c_str()); // print remaining
+    }
+
+    if (clearSend) {
+        u8g2->sendBuffer();
+    }
 }
 
 /**
  * @brief print logo and message at boot
  */
-inline void displayLogo(const String& displaymessagetext, const String& displaymessagetext2) {
+inline void displayLogo(const String& displaymessagetext, boolean wrap = false) {
+    u8g2->clearBuffer();
+
     if (config.get<int>("display.template") == 4) {
-        int printrow = 47;
-        u8g2->clearBuffer();
-
-        // Create modifiable copies
-        char text1[displaymessagetext.length() + 1];
-        char text2[displaymessagetext2.length() + 1];
-
-        strcpy(text1, displaymessagetext.c_str());
-        strcpy(text2, displaymessagetext2.c_str());
-
-        char* token = strtok(text1, " ");
-
-        while (token != nullptr) {
-            u8g2->drawStr(0, printrow, token);
-            token = strtok(nullptr, " "); // Get the next token
-            printrow += 10;
-        }
-
-        token = strtok(text2, " ");
-
-        while (token != nullptr) {
-            u8g2->drawStr(0, printrow, token);
-            token = strtok(nullptr, " "); // Get the next token
-            printrow += 10;
-        }
-
+        displayWrappedMessage(displaymessagetext, 0, 47, 2, false, wrap);
         u8g2->drawXBMP(11, 4, CleverCoffee_Logo_width, CleverCoffee_Logo_height, CleverCoffee_Logo);
     }
     else {
         u8g2->clearBuffer();
-        u8g2->drawStr(0, 45, displaymessagetext.c_str());
-        u8g2->drawStr(0, 55, displaymessagetext2.c_str());
+        displayWrappedMessage(displaymessagetext, 0, 42, 0, false, wrap);
         u8g2->drawXBMP(38, 0, CleverCoffee_Logo_width, CleverCoffee_Logo_height, CleverCoffee_Logo);
     }
 
@@ -598,7 +664,7 @@ inline bool displayFullscreenHotWaterTimer() {
 inline bool displayOfflineMode() {
 
     if (displayOffline > 0 && displayOffline < 20) {
-        displayMessage("", "", "", "", "Begin Fallback,", "No Wifi");
+        displayWrappedMessage("Begin Fallback,\nNo Wifi");
         displayOffline++;
         return true;
     }
@@ -689,7 +755,7 @@ inline bool displayMachineState() {
                 u8g2->print(langstring_backflush_start);
                 break;
 
-            case kBackflushFinished:
+            case kBackflushEnding:
                 u8g2->setFont(u8g2_font_profont12_tf);
                 u8g2->setCursor(4, 37);
                 u8g2->print(langstring_backflush_press);
@@ -742,87 +808,14 @@ inline bool displayMachineState() {
     }
 
     if (machineState == kSensorError) {
-        u8g2->clearBuffer();
-        u8g2->setFont(u8g2_font_profont11_tf);
-        displayMessage(langstring_error_tsensor[0], String(temperature), langstring_error_tsensor[1], "", "", "");
+        displayWrappedMessage(String(langstring_error_tsensor[0]) + String(temperature) + '\n' + String(langstring_error_tsensor[1]));
         return true;
     }
 
     if (machineState == kEepromError) {
-        u8g2->clearBuffer();
-        u8g2->setFont(u8g2_font_profont11_tf);
-        displayMessage("EEPROM Error, please set Values", "", "", "", "", "");
+        displayWrappedMessage("EEPROM Error,\nPlease set values");
         return true;
     }
 
     return false;
-}
-
-inline void displayWrappedMessage(const String& message) {
-    u8g2->clearBuffer();
-
-    if (config.get<int>("display.template") == 4) {
-        u8g2->setFont(u8g2_font_profont10_tf);
-    }
-    else {
-        u8g2->setFont(u8g2_font_profont11_tf);
-    }
-
-    int lineHeight = u8g2->getMaxCharHeight() + 2;
-    int displayWidth = u8g2->getDisplayWidth();
-    int displayHeight = u8g2->getDisplayHeight();
-    int maxLines = displayHeight / lineHeight;
-
-    int x = 0;
-    int y = 0;
-    int wordCount = 0;
-
-    String word;
-    String line;
-
-    for (size_t i = 0; i <= message.length(); ++i) {
-        char c = message[i];
-
-        if (c == ' ' || c == '\n' || c == '\0') {
-            if (u8g2->getUTF8Width((line + word).c_str()) > displayWidth) {
-                u8g2->setCursor(x, y);
-
-                if (wordCount == 0) {
-                    u8g2->drawUTF8(x, y, word.c_str());
-                    y += lineHeight;
-                    line = "";
-                }
-                else {
-                    u8g2->drawUTF8(x, y, line.c_str());
-                    y += lineHeight;
-                    line = word + " ";
-                    wordCount = 1;
-                }
-            }
-            else {
-                line += word + " ";
-                wordCount += 1;
-            }
-
-            word = "";
-
-            if (c == '\n') {
-                u8g2->setCursor(x, y);
-                u8g2->drawUTF8(x, y, line.c_str());
-                y += lineHeight;
-                line = "";
-                wordCount = 0;
-            }
-        }
-        else {
-            word += c;
-        }
-    }
-
-    if (line.length() > 0 && y + lineHeight <= displayHeight) {
-        u8g2->setCursor(x, y);
-        u8g2->drawUTF8(x, y, line.c_str());
-    }
-
-    u8g2->sendBuffer();
 }
