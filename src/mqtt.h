@@ -202,7 +202,10 @@ inline void assignMQTTParam(char* param, double value) {
             }
 
             if (success) {
-                mqtt_publish(param, number2string(value), true); // Publish back with MQTT topic name
+                // mqtt_publish(param, number2string(value), true); // Publish back with MQTT topic name
+                char buf[16];
+                snprintf(buf, sizeof(buf), "%.2f", value);
+                mqtt_publish(param, buf, true);
                 LOGF(DEBUG, "MQTT parameter %s (ID: %s) updated to %f", param, parameterId, value);
             }
             else {
@@ -273,7 +276,8 @@ inline int writeSysParamsToMQTT(const bool continueOnError = true) {
     mqttUpdateRunning = true;
     unsigned long start = millis();
 
-    char data[256];
+    // char data[256];
+    char data[64];
     int errorState = 0;
     auto& registry = ParameterRegistry::getInstance();
 
@@ -292,6 +296,7 @@ inline int writeSysParamsToMQTT(const bool continueOnError = true) {
                 }
 
                 LOGF(WARNING, "Parameter %s not found for MQTT topic %s, skipping", parameterId, mqttTopic);
+                ++mqttVarsIt;
                 continue;
             }
 
@@ -320,13 +325,16 @@ inline int writeSysParamsToMQTT(const bool continueOnError = true) {
                     }
 
                     LOGF(WARNING, "Skipping unknown parameter type for topic %s", mqttTopic);
+                    ++mqttVarsIt;
                     continue;
             }
 
-            std::string value = std::string(data);
-
-            if (mqttLastSent[mqttTopic] != value) {
+            // std::string value = std::string(data);
+            std::string prevValue = mqttLastSent[mqttTopic];
+            if (prevValue != data) {
+                // if (mqttLastSent[mqttTopic] != value) {
                 if (!mqtt_publish(mqttTopic, data, true)) {
+                    // if (!mqtt_publish(mqttTopic, value.c_str(), true)) {
                     errorState = mqtt.state();
 
                     if (!continueOnError) {
@@ -337,7 +345,7 @@ inline int writeSysParamsToMQTT(const bool continueOnError = true) {
                     LOGF(WARNING, "Failed to publish parameter %s to MQTT, error: %d", mqttTopic, errorState);
                 }
                 else {
-                    mqttLastSent[mqttTopic] = value; // Update only if sent successfully
+                    mqttLastSent[mqttTopic] = data; // Update only if sent successfully
                     IFLOG(DEBUG) {
                         LOGF(DEBUG, "Published %s = %s to MQTT", mqttTopic, data);
                     }
@@ -360,11 +368,19 @@ inline int writeSysParamsToMQTT(const bool continueOnError = true) {
     while (mqttSensorsIt != mqttSensors.end()) {
         const char* topic = mqttSensorsIt->first;
         const auto& sensorFunc = mqttSensorsIt->second;
-        std::string value = number2string(sensorFunc());
+        // std::string value = number2string(sensorFunc());
+        // auto sensorVal = sensorFunc();
+        // std::string value = formatValue(sensorVal);
+        double sensorVal = sensorFunc();
+        snprintf(data, sizeof(data), "%.2f", sensorVal);
 
-        if (mqttLastSent[topic] != value) {
+        // if (mqttLastSent[topic] != value) {
+        std::string prevValue = mqttLastSent[topic];
 
-            if (!mqtt_publish(topic, value.c_str())) {
+        if (prevValue != data) {
+
+            // if (!mqtt_publish(topic, value.c_str())) {
+            if (!mqtt_publish(topic, data)) {
                 errorState = mqtt.state();
 
                 if (!continueOnError) {
@@ -372,7 +388,7 @@ inline int writeSysParamsToMQTT(const bool continueOnError = true) {
                 }
             }
             else {
-                mqttLastSent[topic] = value;
+                mqttLastSent[topic] = data;
             }
         }
 
