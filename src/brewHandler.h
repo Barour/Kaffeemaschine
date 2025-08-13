@@ -478,8 +478,15 @@ inline void backflush() {
                 pumpRelay->off();
                 debugPumpState("Backflush", "off");
                 LOG(INFO, "Backflush: flushing into drip tray");
-                currBackflushState = kBackflushFlushing;
+
+                if (currBackflushCycles == backflushCycles) {
+                    currBackflushState = kBackflushEnding;
+                }
+                else {
+                    currBackflushState = kBackflushFlushing;
+                }
             }
+
             break;
 
         case kBackflushFlushing:
@@ -498,6 +505,14 @@ inline void backflush() {
                     currBackflushState = kBackflushFinished;
                 }
             }
+
+            break;
+
+        case kBackflushEnding:
+            if (millis() - startingTime > backflushFlushTime * 1000) {
+                currBackflushState = kBackflushFinished;
+            }
+
             break;
 
         case kBackflushFinished:

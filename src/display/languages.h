@@ -19,8 +19,9 @@ static const char* langstring_uptime;
 static const char* langstring_offlinemode;
 static const char* langstring_wifirecon;
 static const char* langstring_connectwifi1;
+static const char* langstring_connectip;
 static const char* langstring_nowifi[2];
-static const char* langstring_error_tsensor[5];
+static const char* langstring_error_tsensor[2];
 static const char* langstring_scale_Failure;
 static const char* langstring_backflush_press;
 static const char* langstring_backflush_start;
@@ -32,7 +33,6 @@ static const char* langstring_manual_flush_ur;
 static const char* langstring_hot_water_ur;
 static const char* langstring_weight_ur;
 static const char* langstring_pressure_ur;
-static const char* langstring_error_tsensor_ur[5];
 static const char* langstring_calibrate_start;
 static const char* langstring_calibrate_in_progress;
 static const char* langstring_calibrate_complete;
@@ -58,18 +58,14 @@ inline void initLangStrings(const Config& config) {
 
     langstring_offlinemode = "Offline";
     langstring_wifirecon = "Wifi reconnect:";
-    langstring_connectwifi1 = "1: Connecting to WiFi:";
+    langstring_connectwifi1 = "Connecting to WiFi:";
+    langstring_connectip = "IP Address:";
     langstring_nowifi[0] = "No ";
     langstring_nowifi[1] = "WiFi";
 
     langstring_error_tsensor[0] = "Error, Temp: ";
-    langstring_error_tsensor[1] = "Check Temp. sensor!";
+    langstring_error_tsensor[1] = "Check temperature sensor!";
     langstring_scale_Failure = "Fault";
-    langstring_error_tsensor_ur[0] = "Error";
-    langstring_error_tsensor_ur[1] = "Temp: ";
-    langstring_error_tsensor_ur[2] = "check";
-    langstring_error_tsensor_ur[3] = "temp.";
-    langstring_error_tsensor_ur[4] = "sensor!";
 
     langstring_backflush_press = "Press brew switch";
     langstring_backflush_start = "to start...";
