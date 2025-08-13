@@ -35,8 +35,8 @@
 #include "hardware/StandardLED.h"
 #include "hardware/Switch.h"
 #include "hardware/pinmapping.h"
-#include "hardware/pumpControl.h"
 #include "hardware/pressureSensorAds1115.h"
+#include "hardware/pumpControl.h"
 #include "hardware/tempsensors/TempSensorDallas.h"
 #include "hardware/tempsensors/TempSensorK.h"
 

@@ -73,7 +73,7 @@
 #define PID_KP_REGULAR_MIN            0.0
 #define PID_KP_REGULAR_MAX            200.0
 #define PID_TN_REGULAR_MIN            0.0
-#define PID_TN_REGULAR_MAX            200.0
+#define PID_TN_REGULAR_MAX            400.0
 #define PID_TV_REGULAR_MIN            0.0
 #define PID_TV_REGULAR_MAX            200.0
 #define PID_I_MAX_REGULAR_MIN         0.0
